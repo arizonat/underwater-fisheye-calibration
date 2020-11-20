@@ -7,8 +7,10 @@ import numpy as np
 import cv2
 import glob
 
+MODE = "fisheye" #"fisheye" or "normal"
+
 SQUARE_SIZE = 0.03 #meters
-OUTFILE = "camera_calibrations.npz"
+OUTFILE = "camera_calibrations"
 chessBoardHeight = 5
 chessBoardWidth = 7
 
@@ -47,20 +49,28 @@ for fname in images:
 
 cv2.destroyAllWindows()
 
-ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
-
-newcameramtx, roi=cv2.getOptimalNewCameraMatrix(mtx,dist,(w,h),1,(w,h))
+if MODE == "fisheye":
+    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1],None,None)   
+else:
+    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
+    newcameramtx, roi=cv2.getOptimalNewCameraMatrix(mtx,dist,(w,h),1,(w,h))
 
 print("camera matrix: ", mtx)
-print("refined camera matrix: ", newcameramtx)
+
+if MODE == "normal":
+    print("refined camera matrix: ", newcameramtx)
+
 print("distortion coefficients: ", dist)
 
-print("saving matrices to ", OUTFILE)
+print("saving matrices to ", OUTFILE+"_"+MODE+".npz")
 np.savez(OUTFILE, mtx, newcameramtx, dist)
 
 mean_error = 0
 for i in range(len(objpoints)):
-    imgpoints2, _ = cv2.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+    if MODE == "fisheye":
+        imgpoints2, _ = cv2.fisheye.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+    elif MODE == "normal":
+        imgpoints2, _ = cv2.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
     error = cv2.norm(imgpoints[i], imgpoints2, cv2.NORM_L2)/len(imgpoints2)
     mean_error += error
 print( "total error: {}".format(mean_error/len(objpoints)) )
