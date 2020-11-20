@@ -41,8 +41,8 @@ for fname in images:
         imgpoints.append(corners2)
 
         # Draw and display the corners
-        img = cv2.drawChessboardCorners(img, (chessBoardWidth,chessBoardHeight), corners2,ret)
-        cv2.imshow('img',img)
+        # img = cv2.drawChessboardCorners(img, (chessBoardWidth,chessBoardHeight), corners2,ret)
+        # cv2.imshow('img',img)
         cv2.waitKey(500)
 
 cv2.destroyAllWindows()
@@ -57,3 +57,10 @@ print("distortion coefficients: ", dist)
 
 print("saving matrices to ", OUTFILE)
 np.savez(OUTFILE, mtx, newcameramtx, dist)
+
+mean_error = 0
+for i in range(len(objpoints)):
+    imgpoints2, _ = cv2.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+    error = cv2.norm(imgpoints[i], imgpoints2, cv2.NORM_L2)/len(imgpoints2)
+    mean_error += error
+print( "total error: {}".format(mean_error/len(objpoints)) )
