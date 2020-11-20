@@ -7,18 +7,22 @@ import numpy as np
 import cv2
 import glob
 
+SQUARE_SIZE = 0.03 #meters
+CHESS_SIZE = (7,5)
+OUTFILE = "camera_calibrations.npz"
+
 # termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-objp = np.zeros((5*7,3), np.float32)
-objp[:,:2] = np.mgrid[0:7,0:6].T.reshape(-1,2)*0.03
+objp = np.zeros((CHESS_SIZE[0]*CHESS_SIZE[1],3), np.float32)
+objp[:,:2] = np.mgrid[0:CHESS_SIZE[0],0:CHESS_SIZE[1]].T.reshape(-1,2)*SQUARE_SIZE
 
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
-images = glob.glob('imgs/*.jpg')
+images = glob.glob('imgs/*.JPG')
 
 for fname in images:
     img = cv2.imread(fname)
@@ -26,7 +30,7 @@ for fname in images:
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
     # Find the chess board corners
-    ret, corners = cv2.findChessboardCorners(gray, (7,6),None)
+    ret, corners = cv2.findChessboardCorners(gray, CHESS_SIZE,None)
 
     # If found, add object points, image points (after refining them)
     if ret == True:
@@ -36,7 +40,7 @@ for fname in images:
         imgpoints.append(corners2)
 
         # Draw and display the corners
-        img = cv2.drawChessboardCorners(img, (7,6), corners2,ret)
+        img = cv2.drawChessboardCorners(img, CHESS_SIZE, corners2,ret)
         cv2.imshow('img',img)
         cv2.waitKey(500)
 
@@ -46,4 +50,9 @@ ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.sh
 
 newcameramtx, roi=cv2.getOptimalNewCameraMatrix(mtx,dist,(w,h),1,(w,h))
 
-np.savez("calibration_params.npz", mtx, newcameramtx)
+print("camera matrix: ", mtx)
+print("refined camera matrix: ", newcameramtx)
+print("distortion coefficients: ", dist)
+
+print("saving matrices to ", OUTFILE)
+np.savez(OUTFILE, mtx, newcameramtx, dist)
