@@ -50,17 +50,64 @@ for fname in images:
 cv2.destroyAllWindows()
 
 if MODE == "fisheye":
-    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1],None,None)   
+    K = np.zeros((3, 3))
+    D = np.zeros((4, 1))
+
+    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1],K,D)
+
+    for fname in images:
+        img = cv2.imread(fname)
+        dim1 = img.shape[:2][::-1]  #dim1 is the dimension of input image to un-distort
+        DIM= dim1
+        balance=1
+        dim2= dim1
+        dim3= dim1
+        # assert dim1[0]/dim1[1] == DIM[0]/DIM[1], "Image to undistort needs to have same aspect ratio as the ones used in calibration"
+        # if not dim2:
+        #     dim2 = dim1
+        # if not dim3:
+        #     dim3 = dim1
+        scaled_K = K * dim1[0] / DIM[0]  # The values of K is to scale with image dimension.
+        scaled_K[2][2] = 1.0  # Except that K[2][2] is always 1.0
+
+        new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(scaled_K, D, dim2, np.eye(3), balance=balance)
+        map1, map2 = cv2.fisheye.initUndistortRectifyMap(scaled_K, D, np.eye(3), new_K, dim3, cv2.CV_16SC2)
+        undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)   
+        prefix = fname[:-4]
+        cv2.imwrite(prefix + 'calibresult.png', undistorted_img)
 else:
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
     newcameramtx, roi=cv2.getOptimalNewCameraMatrix(mtx,dist,(w,h),1,(w,h))
 
-print("camera matrix: ", mtx)
+    for fname in images:
+        img = cv2.imread(fname)
+        h, w = img.shape[:2]
+        newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+        # print("new camera matrix", newcameramtx)
+        dst = cv2.fisheye.undistort(img, mtx, dist, None, newcameramtx)
+        x, y, w, h = roi
+        dst = dst[y:y+h, x:x+w]
+        # vis = np.concatenate((img, dst), axis=0)
+
+        h1, w1 = img.shape[:2]
+        h2, w2 = dst.shape[:2]
+
+        #create empty matrix
+        vis = np.zeros((max(h1, h2), w1+w2,3), np.uint8)
+
+        #combine 2 images
+        vis[:h1, :w1,:3] = img
+        vis[:h2, w1:w1+w2,:3] = dst
+        prefix = fname[:-4]
+        cv2.imwrite(prefix + 'calibresult.png', vis)
+
+print("camera matrix", mtx)
+print("distortion coefficients", dist)
+
+
 
 if MODE == "normal":
     print("refined camera matrix: ", newcameramtx)
-
-print("distortion coefficients: ", dist)
 
 if MODE == "fisheye":
     print("saving matrix to ", OUTFILE+"_"+MODE+".npz")
