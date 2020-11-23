@@ -57,21 +57,11 @@ if MODE == "fisheye":
 
     for fname in images:
         img = cv2.imread(fname)
-        dim1 = img.shape[:2][::-1]  #dim1 is the dimension of input image to un-distort
-        DIM= dim1
-        balance=1
-        dim2= dim1
-        dim3= dim1
-        # assert dim1[0]/dim1[1] == DIM[0]/DIM[1], "Image to undistort needs to have same aspect ratio as the ones used in calibration"
-        # if not dim2:
-        #     dim2 = dim1
-        # if not dim3:
-        #     dim3 = dim1
-        scaled_K = K * dim1[0] / DIM[0]  # The values of K is to scale with image dimension.
+        dim1 = img.shape[:2][::-1]  #dim1 is the dimension of input image to un-distort        
+        scaled_K = K # The values of K is to scale with image dimension.
         scaled_K[2][2] = 1.0  # Except that K[2][2] is always 1.0
-
-        new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(scaled_K, D, dim2, np.eye(3), balance=balance)
-        map1, map2 = cv2.fisheye.initUndistortRectifyMap(scaled_K, D, np.eye(3), new_K, dim3, cv2.CV_16SC2)
+        new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(scaled_K, D, dim1, np.eye(3), balance=1)
+        map1, map2 = cv2.fisheye.initUndistortRectifyMap(scaled_K, D, np.eye(3), new_K, dim1, cv2.CV_16SC2)
         undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)   
         prefix = fname[:-4]
         cv2.imwrite(prefix + 'calibresult.png', undistorted_img)
