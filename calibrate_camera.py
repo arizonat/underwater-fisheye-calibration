@@ -25,7 +25,7 @@ objp[0,:,:2]  = np.mgrid[0:BOARD_WIDTH,0:BOARD_HEIGHT].T.reshape(-1,2)*0.03
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
-images = glob.glob('fisheye_imgs/*.png')
+images = glob.glob('uw_fisheye_right_imgs/*.png')
 
 for fname in images:
     img = cv2.imread(fname)
@@ -53,7 +53,7 @@ if MODE == "fisheye":
     K = np.zeros((3, 3))
     D = np.zeros((4, 1))
 
-    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1],K,D)
+    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1],K,D,flags=cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC)
 
     for fname in images:
         img = cv2.imread(fname)
