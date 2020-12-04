@@ -31,7 +31,7 @@ images = glob.glob('uw_fisheye_right_imgs/*.png')
 
 for fname in images:
     img = cv2.imread(fname)
-    scale = 1/1.33 # percent of original size
+    scale = 1 #1/1.33 # percent of original size
     dim = (int(img.shape[1] * scale), int(img.shape[0] * scale))
     img = cv2.resize(img, dim)
     img_shape = img.shape[:2]
@@ -49,9 +49,9 @@ for fname in images:
         imgpoints.append(corners)
 
         # Draw and display the corners
-        img = cv2.drawChessboardCorners(img, (BOARD_WIDTH,BOARD_HEIGHT), corners,ret)
-        cv2.imshow('img',img)
-        cv2.waitKey(500)
+        # img = cv2.drawChessboardCorners(img, (BOARD_WIDTH,BOARD_HEIGHT), corners,ret)
+        # cv2.imshow('img',img)
+        # cv2.waitKey(500)
 
 cv2.destroyAllWindows()
 
@@ -61,7 +61,7 @@ if MODE == "fisheye":
     D = np.zeros((4, 1))
     DIM = img_shape
 
-    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1],K,D,flags=cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC)
+    ret, K, D, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1],K,D,flags=cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC)
     print("Found " + str(N_OK) + " valid images for calibration")
     print("DIM = " + str(img_shape[::-1]))
     print("K=np.array(" + str(K.tolist()) + ")")
@@ -71,66 +71,66 @@ if MODE == "fisheye":
     print("translation vectors: " + str(tvecs))
     print(len(tvecs))
 
-# UNDISTORT
-    def undistort(img_path):
-        img = cv2.imread(img_path)
-        scale = 1/1.33 # percent of original size
-        dim = (int(img.shape[1] * scale), int(img.shape[0] * scale))
-        img = cv2.resize(img, dim)
-        h,w = img.shape[:2]
-        map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
-        undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
-        prefix = fname[:-4]
-        cv2.imshow("undistorted" + prefix, undistorted_img)
-        cv2.imwrite(prefix + 'calibresult.png', undistorted_img)
+# # UNDISTORT
+#     def undistort(img_path):
+#         img = cv2.imread(img_path)
+#         scale = 1/1.33 # percent of original size
+#         dim = (int(img.shape[1] * scale), int(img.shape[0] * scale))
+#         img = cv2.resize(img, dim)
+#         h,w = img.shape[:2]
+#         map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
+#         undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+#         prefix = fname[:-4]
+#         cv2.imshow("undistorted" + prefix, undistorted_img)
+#         cv2.imwrite(prefix + 'calibresult.png', undistorted_img)
     
-    for fname in images:
-        undistort(fname)
-    #     img = cv2.imread(fname)
-    #     h,w = img.shape[:2]
-    #     map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
-    #     undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
-    #     # cv2.imshow("undistorted", undistorted_img)
-    #     prefix = fname[:-4]
-    #     cv2.imwrite(prefix + 'calibresult.png', undistorted_img)
+#     for fname in images:
+#         undistort(fname)
+#     #     img = cv2.imread(fname)
+#     #     h,w = img.shape[:2]
+#     #     map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
+#     #     undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+#     #     # cv2.imshow("undistorted", undistorted_img)
+#     #     prefix = fname[:-4]
+#     #     cv2.imwrite(prefix + 'calibresult.png', undistorted_img)
 
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    # for fname in images:
+#     # cv2.waitKey(0)
+#     # cv2.destroyAllWindows()
+#     # for fname in images:
 
-        # dim1 = img.shape[:2][::-1]  #dim1 is the dimension of input image to un-distort        
-        # scaled_K = K # The values of K is to scale with image dimension.
-        # scaled_K[2][2] = 1.0  # Except that K[2][2] is always 1.0
-        # new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(scaled_K, D, dim1, np.eye(3), balance=1)
-        # map1, map2 = cv2.fisheye.initUndistortRectifyMap(scaled_K, D, np.eye(3), new_K, dim1, cv2.CV_16SC2)
-        # undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)   
-        # prefix = fname[:-4]
-        # cv2.imwrite(prefix + 'calibresult.png', undistorted_img)
-else:
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
-    newcameramtx, roi=cv2.getOptimalNewCameraMatrix(mtx,dist,(w,h),1,(w,h))
+#         # dim1 = img.shape[:2][::-1]  #dim1 is the dimension of input image to un-distort        
+#         # scaled_K = K # The values of K is to scale with image dimension.
+#         # scaled_K[2][2] = 1.0  # Except that K[2][2] is always 1.0
+#         # new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(scaled_K, D, dim1, np.eye(3), balance=1)
+#         # map1, map2 = cv2.fisheye.initUndistortRectifyMap(scaled_K, D, np.eye(3), new_K, dim1, cv2.CV_16SC2)
+#         # undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)   
+#         # prefix = fname[:-4]
+#         # cv2.imwrite(prefix + 'calibresult.png', undistorted_img)
+# else:
+#     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
+#     newcameramtx, roi=cv2.getOptimalNewCameraMatrix(mtx,dist,(w,h),1,(w,h))
 
-    for fname in images:
-        img = cv2.imread(fname)
-        h, w = img.shape[:2]
-        newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
-        # print("new camera matrix", newcameramtx)
-        dst = cv2.fisheye.undistort(img, mtx, dist, None, newcameramtx)
-        x, y, w, h = roi
-        dst = dst[y:y+h, x:x+w]
-        # vis = np.concatenate((img, dst), axis=0)
+#     for fname in images:
+#         img = cv2.imread(fname)
+#         h, w = img.shape[:2]
+#         newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+#         # print("new camera matrix", newcameramtx)
+#         dst = cv2.fisheye.undistort(img, mtx, dist, None, newcameramtx)
+#         x, y, w, h = roi
+#         dst = dst[y:y+h, x:x+w]
+#         # vis = np.concatenate((img, dst), axis=0)
 
-        h1, w1 = img.shape[:2]
-        h2, w2 = dst.shape[:2]
+#         h1, w1 = img.shape[:2]
+#         h2, w2 = dst.shape[:2]
 
-        #create empty matrix
-        vis = np.zeros((max(h1, h2), w1+w2,3), np.uint8)
+#         #create empty matrix
+#         vis = np.zeros((max(h1, h2), w1+w2,3), np.uint8)
 
-        #combine 2 images
-        vis[:h1, :w1,:3] = img
-        vis[:h2, w1:w1+w2,:3] = dst
-        prefix = fname[:-4]
-        cv2.imwrite(prefix + 'calibresult.png', vis)
+#         #combine 2 images
+#         vis[:h1, :w1,:3] = img
+#         vis[:h2, w1:w1+w2,:3] = dst
+#         prefix = fname[:-4]
+#         cv2.imwrite(prefix + 'calibresult.png', vis)
 
 # print("camera matrix", mtx)
 # print("distortion coefficients", dist)
@@ -142,7 +142,7 @@ if MODE == "normal":
 
 if MODE == "fisheye":
     print("saving matrix to ", OUTFILE+"_"+MODE+".npz")
-    np.savez(OUTFILE, mtx, dist)
+    np.savez(OUTFILE, K, D)
 else:
     print("saving matrices to ", OUTFILE+"_"+MODE+".npz")
     np.savez(OUTFILE, mtx, newcameramtx, dist)

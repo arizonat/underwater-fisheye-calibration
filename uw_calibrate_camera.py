@@ -2,23 +2,76 @@ import sys
 import os
 import numpy as np
 import cv2
-import scipy
+from scipy.optimize import least_squares
 import glob
 
 from functools import partial
 
-MODE = "fisheye"
+# MODE = "fisheye"
+
+# SQUARE_SIZE = 0.03 #meters
+# OUTFILE = "camera_calibrations"
+# BOARD_HEIGHT = 5
+# BOARD_WIDTH = 7
+
+# # Termination criteria
+# criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+# calibration_flags = cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC+cv2.fisheye.CALIB_CHECK_COND+cv2.fisheye.CALIB_FIX_SKEW
+
+# # Prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+# objp = np.zeros((1,BOARD_HEIGHT*BOARD_WIDTH,3), np.float32)
+# objp[0,:,:2]  = np.mgrid[0:BOARD_WIDTH,0:BOARD_HEIGHT].T.reshape(-1,2)*0.03
+
+# # Arrays to store object points and image points from all the images.
+# objpoints = [] # 3d point in real world space
+# imgpoints = [] # 2d points in image plane.
+# img_shape = None
+
+# images = glob.glob('uw_fisheye_right_imgs/*.png')
+
+# # Get image points
+# for fname in images:
+#     img = cv2.imread(fname)
+#     img_shape = img.shape[:2]
+#     h, w = img.shape[:2]
+#     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+
+#     # Find the chess board corners
+#     ret, corners = cv2.findChessboardCorners(gray, (BOARD_WIDTH,BOARD_HEIGHT),None)
+
+#     # If found, add object points, image points (after refining them)
+#     if ret == True:
+#         objpoints.append(objp)
+
+#         cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
+#         imgpoints.append(corners)
+
+#         # Draw and display the corners
+#         img = cv2.drawChessboardCorners(img, (BOARD_WIDTH,BOARD_HEIGHT), corners,ret)
+#         cv2.imshow('img',img)
+#         cv2.waitKey(500)
+
+# cv2.destroyAllWindows()
+
+# # Load in-air calibrations
+# K, D = np.load("camera_calibrations.npz").values()
+
+# _K = np.zeros((3, 3))
+# _D = np.zeros((4, 1))
+# # Get guesstimate of rvecs and tvecs (TODO: need a better initial conditions)
+# _, _, _, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1],_K,_D,flags=cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC)
+MODE = "fisheye" #"fisheye" or "normal"
 
 SQUARE_SIZE = 0.03 #meters
 OUTFILE = "camera_calibrations"
 BOARD_HEIGHT = 5
 BOARD_WIDTH = 7
 
-# Termination criteria
+# termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 calibration_flags = cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC+cv2.fisheye.CALIB_CHECK_COND+cv2.fisheye.CALIB_FIX_SKEW
 
-# Prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
 objp = np.zeros((1,BOARD_HEIGHT*BOARD_WIDTH,3), np.float32)
 objp[0,:,:2]  = np.mgrid[0:BOARD_WIDTH,0:BOARD_HEIGHT].T.reshape(-1,2)*0.03
 
@@ -29,9 +82,11 @@ img_shape = None
 
 images = glob.glob('uw_fisheye_right_imgs/*.png')
 
-# Get image points
 for fname in images:
     img = cv2.imread(fname)
+    scale = 1 #1/1.33 # percent of original size
+    dim = (int(img.shape[1] * scale), int(img.shape[0] * scale))
+    img = cv2.resize(img, dim)
     img_shape = img.shape[:2]
     h, w = img.shape[:2]
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
@@ -47,17 +102,64 @@ for fname in images:
         imgpoints.append(corners)
 
         # Draw and display the corners
-        img = cv2.drawChessboardCorners(img, (BOARD_WIDTH,BOARD_HEIGHT), corners,ret)
-        cv2.imshow('img',img)
-        cv2.waitKey(500)
+        # img = cv2.drawChessboardCorners(img, (BOARD_WIDTH,BOARD_HEIGHT), corners,ret)
+        # cv2.imshow('img',img)
+        # cv2.waitKey(500)
 
 cv2.destroyAllWindows()
 
-# Load in-air calibrations
-K, D = np.load("camera_calibrations.npz").items()
+if MODE == "fisheye":
+    N_OK = len(objpoints)
+    K = np.zeros((3, 3))
+    D = np.zeros((4, 1))
+    DIM = img_shape
 
-# Get guesstimate of rvecs and tvecs (TODO: need a better initial conditions)
-_, _, _, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1],K,D,flags=cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC)
+    ret, K, D, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1],K,D,flags=cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC)
+    # print("Found " + str(N_OK) + " valid images for calibration")
+    # print("DIM = " + str(img_shape[::-1]))
+    # print("K=np.array(" + str(K.tolist()) + ")")
+    # print("D=np.array(" + str(D.tolist()) + ")")
+    # print("rotation vectors: " + str(rvecs))
+    # print(len(rvecs)) #38. one array for each img.
+    # print("translation vectors: " + str(tvecs))
+    # print(len(tvecs))
+    # print("objpoints: ", objpoints)
+    # print(len(objpoints))
+    # for arr in objpoints:
+    #     print(len(arr))
+    # print("imgpoints: ", imgpoints)
+    # print(len(imgpoints))
+    # for arr in imgpoints:
+    #     print(len(arr))
+
+newObjPoints = []
+newImgPoints = []
+newRvecs = []
+newTVecs = []
+
+for i in range(len(rvecs)):
+    rvec = rvecs[i]
+    tvec = tvecs[i]
+    for j in range(len(objpoints)):
+        obj = np.squeeze(objpoints[j])
+        img = np.squeeze(imgpoints[j])
+        print(obj.shape)
+        print(img.shape)
+        for k in range(len(objpoints[j])):
+            o = obj[k]
+            i = img[k]
+            print(o.shape)
+            print(i.shape)
+        # print("obj: ", obj)
+        # print("img: ", img)
+            newRvecs.append(rvec)
+            newTVecs.append(tvec)
+            newObjPoints.append(o)
+            print(o)
+            newImgPoints.append(i)
+            print(i)
+
+K, D = np.load("camera_calibrations.npz").values()
 
 # Compute the vector of residuals
 def uw_ray_trace_residuals(objPoints, imgPoints, K, D, rvecs, tvecs, params):
@@ -71,6 +173,7 @@ def uw_ray_trace_residuals(objPoints, imgPoints, K, D, rvecs, tvecs, params):
     n = n / np.linalg.norm(n)
     
     # Undistort points
+    print("imgPoints: ", imgPoints)
     undistortedPoints = cv2.fisheye.undistortPoints(imgPoints, K, D)
 
     # Prepare residual output
@@ -83,7 +186,7 @@ def uw_ray_trace_residuals(objPoints, imgPoints, K, D, rvecs, tvecs, params):
         # Project initial ray
         fx = K[0,0]
         fy = K[1,1]
-        f = np.mean((fx,fy)) # this is wrong, but what is correct?
+        f = np.mean((fx,fy)) # this is wrong, but what is correct? m/px
         #xra = np.append(undistorted,np.ones((num_points,1)) * f,1)
         xra = np.append(undistortedPoint, f, 0)
         xra_n = xra/np.linalg.norm(xra)
@@ -162,13 +265,13 @@ def uw_calibrate(objPoints, imgPoints, K, D, rvecs, tvecs, flags=0, criteria=Non
     #uw_ray_trace_residuals(objPoints, imgPoints, K, D, rvecs, tvecs, params):
     uw_res = partial(uw_ray_trace_residuals, objPoints, imgPoints, K, D, rvecs, tvecs)
 
-    params0 = [1, 1, 0, 0, 1, 1, 1, 1.33, 1.495]
+    params0 = [1, 1, 0, 0, 1, 1, 1.33, 1.495]
     
-    params = scipy.optimize.least_squares(calibration_res_s, params0)
+    params = least_squares(uw_res, params0)
     return params
 
-params = uw_calibrate(objpoints, imgpoints, K, D, rvecs, tvecs)
+params = uw_calibrate(newObjPoints, newImgPoints, K, D, newRvecs, newTVecs)
 
 # see what our final errors and parameters look like
 print(params)
-print(np.linalg.norm(uw_ray_trace_residuals(objpoints, imgpoints, K, D, rvecs, tvecs, params))
+print(np.linalg.norm(uw_ray_trace_residuals(objpoints, imgpoints, K, D, rvecs, tvecs, params)))
