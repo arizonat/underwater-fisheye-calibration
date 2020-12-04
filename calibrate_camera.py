@@ -31,6 +31,9 @@ images = glob.glob('uw_fisheye_right_imgs/*.png')
 
 for fname in images:
     img = cv2.imread(fname)
+    scale = 1/1.33 # percent of original size
+    dim = (int(img.shape[1] * scale), int(img.shape[0] * scale))
+    img = cv2.resize(img, dim)
     img_shape = img.shape[:2]
     h, w = img.shape[:2]
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
@@ -71,6 +74,9 @@ if MODE == "fisheye":
 # UNDISTORT
     def undistort(img_path):
         img = cv2.imread(img_path)
+        scale = 1/1.33 # percent of original size
+        dim = (int(img.shape[1] * scale), int(img.shape[0] * scale))
+        img = cv2.resize(img, dim)
         h,w = img.shape[:2]
         map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
         undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
