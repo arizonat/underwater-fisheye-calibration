@@ -77,77 +77,6 @@ K, D = np.load("camera_calibrations.npz").values()
 def uw_ray_trace_residuals(objPoints, imgPoints, K, D, rvecs, tvecs, params):
     """
     Function to compute the residuals for img coordinates
-    """
-    # Unpack and gather parameters
-    dh, th, nx, ny, nz, ra, rh, rw = params
-
-    n = np.array([nx, ny, nz]).T
-    n = n / np.linalg.norm(n)
-    
-    # Undistort points
-    # TODO: understand these weird dimensions
-    undistortedPoints = cv2.fisheye.undistortPoints(np.expand_dims(imgPoints,axis=0), K, D, None, K)
-    undistortedPoints = np.squeeze(undistortedPoints)
-
-    # Prepare residual output
-    num_points = undistortedPoints.shape[0]
-    res = np.zeros((num_points,1))
-
-    # TODO: vectorize all this, write most things in linear form
-    for i, undistortedPoint in enumerate(undistortedPoints):
-        # Project initial ray
-        fx = K[0,0]
-        fy = K[1,1]
-        f = np.mean((fx,fy)) # this is wrong, but what is correct? m/px
-        #xra = np.append(undistorted,np.ones((num_points,1)) * f,1)
-        xra = np.append(undistortedPoint, f)
-        xra_n = xra/np.linalg.norm(xra)
-        
-        # Compute angles due to Snell's law
-        theta_a = np.arccos(np.dot(n,xra_n))
-        theta_h = np.arcsin((ra/rh) * np.sin(theta_a))
-        theta_w = np.arcsin((rh/rw) * np.sin(theta_h))
-
-        # Up to housing barrier
-        lambda_h = dh/np.cos(theta_a)
-        xri = lambda_h * xra_n
-
-        # Up to water barrier
-        lambda_w = (dh+th-np.dot(n,xri)) / np.cos(theta_h)
-        xrh_axis = np.cross(n,xra_n) / np.sin(theta_a)
-        xrh_axis = xrh_axis / np.linalg.norm(xrh_axis)
-        xrh = rot_axis_angle(xra_n, xrh_axis, theta_h - theta_a)
-        xrh_n = xrh / np.linalg.norm(xrh)
-        xro = xri + lambda_w * xrh_n
-
-        # Through water
-        xrw_axis = np.cross(n,xrh_n) / np.sin(theta_h)
-        xrw_axis = xrw_axis / np.linalg.norm(xrw_axis)
-        xrw = rot_axis_angle(xrh_n, xrw_axis, theta_w - theta_h)
-        xrw_n = xrw / np.linalg.norm(xrw)
-        
-        # Compute xro', backwards from object point
-        # Transform into camera frame
-        objPoint = np.insert(objPoints[i],3,1.)
-        rvec = rvecs[i].flatten()
-        M_ex = np.zeros((3,4))
-        R,J = cv2.Rodrigues(rvec)
-        M_ex[:,:3] = R
-        M_ex[:,3] = tvecs[i].flatten()
-        P_c = np.matmul(M_ex, objPoint)
-
-        xro_p = P_c + np.dot(((th+dh)*n - P_c), n)/(np.dot(-xrw_n,n))
-        
-        # is this the correct error?
-        res[i] = np.linalg.norm(xro - xro_p)
-    print(params)
-    print(np.linalg.norm(res))
-    return np.squeeze(res)
-
-# Compute the vector of residuals
-def uw_ray_trace_residuals2(objPoints, imgPoints, K, D, rvecs, tvecs, params):
-    """
-    Function to compute the residuals for img coordinates
     Projects onto the chessboard itself rather than the outside face of the housing
     """
     # Unpack and gather parameters
@@ -265,7 +194,7 @@ def rot_axis_angle(vec, axis, theta):
 def uw_calibrate(objPoints, imgPoints, K, D, rvecs, tvecs, flags=0, criteria=None):
 
     #uw_ray_trace_residuals(objPoints, imgPoints, K, D, rvecs, tvecs, params):
-    uw_res = partial(uw_ray_trace_residuals2, objPoints, imgPoints, K, D, rvecs, tvecs)
+    uw_res = partial(uw_ray_trace_residuals, objPoints, imgPoints, K, D, rvecs, tvecs)
 
     params0 = [0.001, 0.00635, 0, 0, 1, 1, 1.33, 1.495]
 
