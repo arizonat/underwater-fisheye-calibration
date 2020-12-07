@@ -3,7 +3,9 @@ import os
 import numpy as np
 import cv2
 from scipy.optimize import least_squares
+from scipy.spatial.transform import Rotation
 import glob
+import math
 
 from functools import partial
 
@@ -73,14 +75,22 @@ tvecs = np.repeat(tvecs,BOARD_HEIGHT*BOARD_WIDTH,axis=0)
 # Just use the in-air calibrations
 K, D = np.load("camera_calibrations.npz").values()
 
+resLength = 0
+
 # Compute the vector of residuals
 def uw_ray_trace_residuals(objPoints, imgPoints, K, D, rvecs, tvecs, params):
     """
     Function to compute the residuals for img coordinates
     Projects onto the chessboard itself rather than the outside face of the housing
     """
+    global resLength
+
     # Unpack and gather parameters
-    dh, th, nx, ny, nz, ra, rh, rw = params
+    nx, ny, nz = 0, 0, 1
+    th = 0
+    rh = 1.33
+
+    dh, ra, rw = params
 
     n = np.array([nx, ny, nz]).T
     n = n / np.linalg.norm(n)
@@ -147,6 +157,7 @@ def uw_ray_trace_residuals(objPoints, imgPoints, K, D, rvecs, tvecs, params):
         res[i] = np.linalg.norm(P_c - P_c_p)
     print(params)
     print(np.linalg.norm(res))
+    resLength = len(res)
     return np.squeeze(res)
 
 def intersect_ray_plane(r0, rd, p0, pd):
@@ -162,6 +173,7 @@ def intersect_ray_plane(r0, rd, p0, pd):
 def aa_to_quat(axis, theta):
     return np.insert(axis * np.sin(theta/2.), 0, np.cos(theta/2.))
 
+# TODO: w x y z
 def quat_mul(q1, q2):
     # TODO: use matrix version to speed up
     q1_w = q1[0]
@@ -188,20 +200,39 @@ def rot_axis_angle(vec, axis, theta):
     """
     Rotate a 1x3 vector around an axis by theta (uses quaternion rotations)
     """
-    q = aa_to_quat(axis, theta)
-    return quat_rot(vec, q)
+    # print("axis: ", axis)
+    # print("theta: ", theta)
+    # q = aa_to_quat(axis, theta)
+    # res = quat_rot(vec, q)
+    # print("result: ", res)
+
+    rotation_vector = theta * axis
+    rotation = Rotation.from_rotvec(rotation_vector)
+    rotated_vec = rotation.apply(vec)
+
+    return rotated_vec
+
     
 def uw_calibrate(objPoints, imgPoints, K, D, rvecs, tvecs, flags=0, criteria=None):
 
     #uw_ray_trace_residuals(objPoints, imgPoints, K, D, rvecs, tvecs, params):
     uw_res = partial(uw_ray_trace_residuals, objPoints, imgPoints, K, D, rvecs, tvecs)
 
-    params0 = [0.001, 0.00635, 0, 0, 1, 1, 1.33, 1.495]
+    # params0 = [0.001, 0.00635, 0, 0, 1, 1, 1.33, 1.495]
+    params0 = [0.001, 1, 1.495]
 
-    lwrbnd = [0., 0., -1., -1., 0., 0., 0., 0.]
-    uprbnd = [10., 10., 1., 1., 1., 38., 38., 38.]
+    # lwrbnd = [0., 0., -1., -1., 0., 0., 0., 0.]
+    # uprbnd = [10., 10., 1., 1., 1., 38., 38., 38.]
+
+    lwrbnd = [0., 0., 0.]
+    uprbnd = [10., 38., 38.]
     
+    #TODO: use mask on least_squares
     params = least_squares(uw_res, params0, bounds=(lwrbnd,uprbnd))
+    cost = params.cost 
+    cost /= resLength
+    cost = math.sqrt(cost)
+    print("cost: ", cost)
     return params
 
 params = uw_calibrate(objPoints, imgPoints, K, D, rvecs, tvecs)
